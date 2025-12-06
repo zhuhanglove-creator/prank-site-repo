@@ -1,0 +1,17 @@
+body {
+    font-family: 'Courier New', monospace;
+    background-color: #1a1a1a;
+    color: #00ff00; /* 经典的故障绿光 */
+    text-align: center;
+    padding-top: 20%;
+    animation: glitch 0.5s infinite alternate;
+}
+h1 {
+    text-shadow: 0 0 5px #00ff00;
+}
+/* 模拟屏幕故障的简单动画 */
+@keyframes glitch {
+    0% { transform: translate(1px, 1px); }
+    50% { transform: translate(-1px, -1px); }
+    100% { transform: translate(1px, 1px); }
+}
