@@ -1,19 +1,417 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>这是一个陷阱</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>致阿佳</title>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Montserrat:wght@300;500&display=swap" rel="stylesheet">
+    <style>
+        /* --- 1. 全局配置 --- */
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; 
+            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+            font-family: 'Montserrat', 'Ma Shan Zheng', sans-serif;
+            color: white;
+        }
+
+        /* 两个Canvas：一个画星星，一个画爱心 */
+        #starCanvas, #heartCanvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            pointer-events: none;
+        }
+        #starCanvas { z-index: 1; }
+        #heartCanvas { z-index: 2; }
+
+        /* --- 2. 遮罩层 --- */
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.92); z-index: 999;
+            display: flex; justify-content: center; align-items: center;
+            transition: opacity 1.5s ease-in-out;
+        }
+        .enter-btn {
+            padding: 12px 35px; border: 1px solid rgba(255,153,172,0.5);
+            background: rgba(255,153,172,0.1); color: #ffccd5; 
+            font-size: 1.1rem; cursor: pointer; letter-spacing: 2px; border-radius: 50px;
+            transition: all 0.5s; box-shadow: 0 0 20px rgba(255, 153, 172, 0.2);
+            animation: pulseBtn 2s infinite;
+        }
+        .enter-btn:hover {
+            background: rgba(255,153,172,0.3); transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 153, 172, 0.6);
+        }
+
+        /* --- 3. 主要内容区 --- */
+        #main-content {
+            position: absolute; top: 45%; left: 50%; /*稍微往上提一点，给歌词留位置*/
+            transform: translate(-50%, -50%);
+            width: 85%; max-width: 550px;
+            z-index: 10; text-align: center;
+            opacity: 0; transition: opacity 2s ease;
+        }
+        
+        .timer-label { font-size: 1rem; color: #aab; margin-bottom: 10px; letter-spacing: 2px; }
+        .timer-box {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.2rem; color: #eef; margin-bottom: 30px;
+            text-shadow: 0 0 10px rgba(100, 200, 255, 0.6);
+        }
+        .timer-highlight { color: #ff99ac; font-weight: bold; font-size: 1.6rem; margin: 0 4px; }
+
+        .typewriter {
+            font-size: 1.25rem; line-height: 1.8;
+            text-align: left; color: #f0f0f0;
+            text-shadow: 0 0 2px rgba(255,255,255,0.3);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 25px; border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.05);
+            backdrop-filter: blur(4px);
+            min-height: 250px;
+        }
+        
+        .cursor { display: inline-block; width: 2px; height: 1.2rem; background: #ff99ac; animation: blink 1s infinite; vertical-align: middle; }
+        .signature { margin-top: 25px; font-size: 0.9rem; color: #889; text-align: right; opacity: 0; transition: opacity 1.5s; }
+
+        /* --- 4. 歌词展示区 --- */
+        #lyric-container {
+            position: fixed; bottom: 30px; left: 0; width: 100%;
+            text-align: center; z-index: 20;
+            pointer-events: none;
+        }
+        #lyric-text {
+            font-size: 1.1rem; color: #ffccd5;
+            text-shadow: 0 0 5px rgba(255, 100, 150, 0.8);
+            font-family: 'Ma Shan Zheng', cursive;
+            transition: opacity 0.3s ease; opacity: 0.8;
+            padding: 0 20px;
+        }
+
+        /* 音乐按钮 */
+        #music-control {
+            position: fixed; top: 20px; right: 20px; z-index: 100;
+            opacity: 0.6; cursor: pointer; transition: all 0.3s;
+            background: rgba(0,0,0,0.3); border-radius: 50%; padding: 8px;
+        }
+        #music-control:hover { opacity: 1; background: rgba(0,0,0,0.5); }
+        .spin { animation: spin 4s linear infinite; }
+
+        @keyframes pulseBtn { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        
+        @media (max-width: 768px) {
+            .typewriter { font-size: 1.1rem; padding: 20px; }
+            #lyric-text { font-size: 1rem; bottom: 20px; }
+        }
+    </style>
 </head>
 <body>
-    <h1>Error 404: 快乐未找到</h1>
-    <p>页面正在努力加载中，请不要点击任何地方！</p>
+
+    <audio id="bgm" loop>
+        <source src="惟爱你.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="music-control" onclick="toggleMusic()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff99ac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polygon points="10 8 16 12 10 16 10 8" fill="#ff99ac"></polygon>
+        </svg>
+    </div>
+
+    <canvas id="starCanvas"></canvas>
+    <canvas id="heartCanvas"></canvas>
+
+    <div id="overlay">
+        <button class="enter-btn" onclick="startJourney()">点击开启属于我们的星河</button>
+    </div>
+
+    <div id="main-content">
+        <div class="timer-label">我们相识已经</div>
+        <div class="timer-box">
+            <span id="days" class="timer-highlight">0</span> 天 
+            <span id="hours" class="timer-highlight">0</span> 时 
+            <span id="minutes" class="timer-highlight">0</span> 分 
+            <span id="seconds" class="timer-highlight">0</span> 秒
+        </div>
+
+        <div class="typewriter">
+            <span id="text-target"></span><span class="cursor"></span>
+        </div>
+
+        <div class="signature" id="signature"></div>
+    </div>
+
+    <div id="lyric-container">
+        <div id="lyric-text">♪ 等待音乐播放...</div>
+    </div>
+
     <script>
-        // 一个简单的搞怪脚本
-        document.addEventListener('click', function() {
-            alert('警告：你被骗了！这是个搞怪网站！');
+        // ==========================================
+        // 👇 1. 这里填入你的 LRC 歌词 (保留格式)
+        // ==========================================
+        const LRC_CONTENT = `
+[00:16.76]也许这就是宿命
+[00:19.38]我听见了这样的你
+[00:24.04]拥有沉默的华丽
+[00:26.7]像一颗遥远的恒星
+[00:30.76]那些孤单的夜里
+[00:34.43]晚歌萦绕在心底
+[00:38.0]多想亲口告诉你
+[00:41.48]你是我心里的惟一
+[00:45.3]惟爱你
+[00:46.92]你的声音是幸福的动力
+[00:51.59]惟爱你
+[00:53.52]想着你心里就多一片光明
+[00:58.88]惟爱你
+[01:00.75]不论一路经历再大暴风雨
+[01:06.64]我会永远坚定陪着你
+[01:29.44]也许这就是宿命
+[01:32.130005]我听见了这样的你
+[01:36.68]拥有沉默的华丽
+[01:39.44]像一颗遥远的恒星
+[01:43.509995]那些孤单的夜里
+[01:47.21]晚歌萦绕在心底
+[01:50.740005]多想亲口告诉你
+[01:54.31]你是我心里的惟一
+[01:58.43]惟爱你
+[01:59.81]你的声音是幸福的动力
+[02:04.37]惟爱你
+[02:06.19]想着你心里就多一片光明
+[02:11.57]惟爱你
+[02:13.45]不论一路经历再大暴风雨
+[02:19.44]我会永远坚定陪着你
+[02:27.58]一场美丽的烟花雨
+[02:30.82]我微笑着写进日记
+[02:34.41]我不会忘记
+[02:37.75]你出现在我生命
+[02:41.69]惟爱你
+[02:43.28]你的声音是幸福的动力
+[02:47.94]惟爱你
+[02:49.88]想着你心里就多一片光明
+[02:55.25]惟爱你
+[02:57.1]不论一路经历再大暴风雨
+[03:03.04]我会永远坚定陪着你
+`;
+
+        // ==========================================
+        // 👇 2. 核心配置区
+        // ==========================================
+        const CONFIG = {
+            startDate: "2025-09-05 02:51:00", 
+            loveText: `阿佳宝宝：
+
+故事的伏笔，其实埋得很早。
+早已记不清是哪天被你的声音吸引，
+（毕竟我是个极度声控！）
+只记得6月1日那天，
+我鼓起勇气发出了第一条私信。
+
+始于声音，陷于心动。
+
+但我真正的时间，
+是从2025年9月5日 02:51 开始计算的。
+那是你第一次回复我，
+也是我们真正相识的起点。
+那一刻，深夜的等待终于有了回响。
+
+我想分分秒秒陪在你身边，
+直到时间尽头，或者直到你腻的那天。
+
+此刻，这漫天星河，
+皆是我为你跳动的心。
+阿佳，你看到了吗？`,
+            signature: "—— 永远守护你的 西瓜~" // 记得改名字
+        };
+
+        // ==========================================
+        //    以下逻辑无需修改
+        // ==========================================
+
+        document.getElementById('signature').innerText = CONFIG.signature;
+        const audio = document.getElementById('bgm');
+        const musicIcon = document.querySelector('#music-control svg');
+        let isPlaying = false;
+        let heartRainStarted = false; // 爱心雨开关
+
+        // --- 歌词解析与同步 ---
+        const lyrics = parseLrc(LRC_CONTENT);
+        const lyricDisplay = document.getElementById('lyric-text');
+
+        function parseLrc(lrc) {
+            const lines = lrc.split('\n');
+            const result = [];
+            for (let line of lines) {
+                const match = line.match(/\[(\d+):(\d+)(\.\d+)?\](.*)/);
+                if (match) {
+                    const t = parseInt(match[1]) * 60 + parseInt(match[2]) + (match[3] ? parseFloat(match[3]) : 0);
+                    result.push({ time: t, text: match[4].trim() });
+                }
+            }
+            return result;
+        }
+
+        audio.addEventListener('timeupdate', () => {
+            const ct = audio.currentTime;
+            for (let i = lyrics.length - 1; i >= 0; i--) {
+                if (ct >= lyrics[i].time) {
+                    if (lyricDisplay.innerText !== lyrics[i].text) {
+                        lyricDisplay.style.opacity = 0;
+                        setTimeout(() => {
+                            lyricDisplay.innerText = lyrics[i].text || "♪";
+                            lyricDisplay.style.opacity = 0.8;
+                        }, 100);
+                    }
+                    break;
+                }
+            }
         });
+
+        // --- 启动逻辑 ---
+        function startJourney() {
+            const overlay = document.getElementById('overlay');
+            const mainContent = document.getElementById('main-content');
+            
+            audio.play().then(() => {
+                isPlaying = true;
+                musicIcon.classList.add('spin');
+            }).catch(() => {});
+
+            overlay.style.opacity = 0;
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                mainContent.style.opacity = 1;
+                typeWriter();
+            }, 1500);
+        }
+
+        function toggleMusic() {
+            if (isPlaying) { audio.pause(); musicIcon.classList.remove('spin'); } 
+            else { audio.play(); musicIcon.classList.add('spin'); }
+            isPlaying = !isPlaying;
+        }
+
+        // --- 计时器 ---
+        function updateTimer() {
+            const diff = new Date().getTime() - new Date(CONFIG.startDate).getTime();
+            if (diff < 0) { document.getElementById('seconds').innerText = "0"; return; }
+            document.getElementById('days').innerText = Math.floor(diff / 86400000);
+            document.getElementById('hours').innerText = Math.floor((diff % 86400000) / 3600000);
+            document.getElementById('minutes').innerText = Math.floor((diff % 3600000) / 60000);
+            document.getElementById('seconds').innerText = Math.floor((diff % 60000) / 1000);
+        }
+        setInterval(updateTimer, 1000);
+        updateTimer();
+
+        // --- 打字机 & 触发爱心 ---
+        let charIndex = 0;
+        const textTarget = document.getElementById('text-target');
+        const speed = 120;
+
+        function typeWriter() {
+            if (charIndex < CONFIG.loveText.length) {
+                const char = CONFIG.loveText.charAt(charIndex);
+                textTarget.innerHTML += char === '\n' ? '<br>' : char;
+                charIndex++;
+                let delay = speed;
+                if (['，', '。', '！', '？', '\n'].includes(char)) delay = speed * 2.5;
+                setTimeout(typeWriter, delay);
+            } else {
+                document.getElementById('signature').style.opacity = 1;
+                // 打字结束，开启满屏爱心
+                setTimeout(() => { heartRainStarted = true; }, 1000);
+            }
+        }
+
+        // ==========================================
+        //  🌠 绘图区：星星 + 爱心
+        // ==========================================
+        const starCanvas = document.getElementById('starCanvas');
+        const heartCanvas = document.getElementById('heartCanvas');
+        const sCtx = starCanvas.getContext('2d');
+        const hCtx = heartCanvas.getContext('2d');
+        let width, height;
+        let stars = [];
+        let hearts = [];
+
+        function initDims() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            starCanvas.width = heartCanvas.width = width;
+            starCanvas.height = heartCanvas.height = height;
+        }
+        window.addEventListener('resize', initDims);
+        initDims();
+
+        // 初始化星星
+        for(let i = 0; i < 200; i++) {
+            stars.push({
+                x: Math.random() * width, y: Math.random() * height,
+                r: Math.random() * 1.5,
+                dx: (Math.random() - 0.5) * 0.4, dy: (Math.random() - 0.5) * 0.4,
+                alpha: Math.random(), fade: (Math.random() * 0.02) + 0.005
+            });
+        }
+
+        // 爱心类
+        class Heart {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = height + 10;
+                this.size = Math.random() * 10 + 5;
+                this.speedY = Math.random() * 1.5 + 0.5;
+                this.color = `rgba(255, ${Math.floor(Math.random() * 100 + 150)}, ${Math.floor(Math.random() * 100 + 150)},`; 
+                this.opacity = 1;
+            }
+            update() {
+                this.y -= this.speedY;
+                this.opacity -= 0.002;
+            }
+            draw() {
+                hCtx.fillStyle = this.color + this.opacity + ')';
+                hCtx.beginPath();
+                let top = this.size * 0.3;
+                // 画心形
+                hCtx.moveTo(this.x, this.y + top);
+                hCtx.bezierCurveTo(this.x, this.y, this.x - this.size / 2, this.y, this.x - this.size / 2, this.y + top);
+                hCtx.bezierCurveTo(this.x - this.size / 2, this.y + (this.size + top) / 2, this.x, this.y + (this.size + top) / 2 + top, this.x, this.y + this.size);
+                hCtx.bezierCurveTo(this.x, this.y + (this.size + top) / 2 + top, this.x + this.size / 2, this.y + (this.size + top) / 2, this.x + this.size / 2, this.y + top);
+                hCtx.bezierCurveTo(this.x + this.size / 2, this.y, this.x, this.y, this.x, this.y + top);
+                hCtx.fill();
+            }
+        }
+
+        function animate() {
+            // 1. 画星星
+            sCtx.clearRect(0, 0, width, height);
+            stars.forEach(star => {
+                sCtx.beginPath();
+                sCtx.shadowBlur = 4; sCtx.shadowColor = "rgba(255,255,255,0.8)";
+                sCtx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                sCtx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+                sCtx.fill();
+                star.x += star.dx; star.y += star.dy;
+                star.alpha -= star.fade;
+                if (star.alpha <= 0 || star.alpha >= 1) star.fade = -star.fade;
+                if(star.x < 0) star.x = width; if(star.x > width) star.x = 0;
+                if(star.y < 0) star.y = height; if(star.y > height) star.y = 0;
+            });
+
+            // 2. 画爱心 (如果开启)
+            hCtx.clearRect(0, 0, width, height);
+            if (heartRainStarted) {
+                if (Math.random() < 0.1) hearts.push(new Heart()); // 生成新爱心
+                for (let i = 0; i < hearts.length; i++) {
+                    hearts[i].update();
+                    hearts[i].draw();
+                    if (hearts[i].y < -20 || hearts[i].opacity <= 0) {
+                        hearts.splice(i, 1); i--;
+                    }
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+        animate();
     </script>
 </body>
 </html>
